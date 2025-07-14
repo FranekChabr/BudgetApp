@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+{% block title %}Lista wydatków - Budżet Domowy{% endblock %}
+{% block content %}
+<h2><i class="fas fa-list"></i> Lista wydatków</h2>
+
+<div class="stats-grid">
+    <div class="stat-card summary-card">
+        <div class="summary-content">
+            <div class="summary-left">
+                <h4>Łączna suma wydatków</h4>
+                <div class="value">{{ "%.2f"|format(total) }} PLN</div>
+                <div class="secondary">Po zastosowaniu filtrów</div>
+            </div>
+            <div class="summary-right">
+                <a href="{{ url_for('add_expense') }}" class="btn btn-primary btn-large add-expense-btn">
+                    <i class="fas fa-plus-circle"></i> Dodaj wydatek
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="expenses-layout">
+    <!-- wykres slupkowy po lewej-->
+    <div class="chart-section">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-chart-bar"></i> Wydatki według kategorii</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- rozwijanie filtrow -->
+    <div class="filter-section">
+        <div class="filter-toggle" onclick="toggleFilters()">
+            <h3><i class="fas fa-filter"></i> Filtruj wydatki</h3>
+            <i class="fas fa-chevron-down filter-arrow" id="filterArrow"></i>
+        </div>
+
+        <div class="filter-content" id="filterContent">
+            <form method="post" class="filter-form">
+                {{ filter_form.hidden_tag() }}
+                <div class="filter-field">
+                    <label>{{ filter_form.category.label }}</label>
+                    {{ filter_form.category(class="form-control") }}
+                </div>
+                <div class="filter-field">
+                    <label>{{ filter_form.date_from.label }}</label>
+                    {{ filter_form.date_from(type="date", class="form-control") }}
+                </div>
+                <div class="filter-field">
+                    <label>{{ filter_form.date_to.label }}</label>
+                    {{ filter_form.date_to(type="date", class="form-control") }}
+                </div>
+                <div class="filter-submit">
+                    {{ filter_form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-receipt"></i> Lista wszystkich wydatków</h3>
+    </div>
+
+    <div class="table-container">
+        <table class="expenses-table">
+            <thead>
+                <tr>
+                    <th>Tytuł</th>
+                    <th>Kategoria</th>
+                    <th>Kwota</th>
+                    <th>Data</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for expense in expenses %}
+                <tr>
+                    <td>{{ expense.title }}</td>
+                    <td>
+                        <span class="category-badge">{{ expense.category }}</span>
+                    </td>
+                    <td>{{ "%.2f"|format(expense.amount) }} PLN</td>
+                    <td>{{ expense.date.strftime('%Y-%m-%d') }}</td>
+                    <td class="table-actions">
+                        <a href="{{ url_for('edit_expense', expense_id=expense.id) }}" class="btn btn-primary btn-small">
+                            <i class="fas fa-edit"></i> Edytuj
+                        </a>
+                        <form action="{{ url_for('delete_expense', expense_id=expense.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Na pewno usunąć ten wydatek?')">
+                                <i class="fas fa-trash"></i> Usuń
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px;">
+                        <i class="fas fa-info-circle"></i> Brak wydatków do wyświetlenia.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .summary-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        padding: 0;
+    }
+
+    .summary-content {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        width: 100%;
+    }
+
+    .summary-left {
+        flex: 3;
+        padding: 20px;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .summary-right {
+        flex: 1;
+        padding: 20px;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 120px;
+    }
+
+    .add-expense-btn {
+        background: transparent !important;
+        border: 2px solid white !important;
+        color: white !important;
+        padding: 12px 20px !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .add-expense-btn:hover {
+        background: white !important;
+        color: #4f46e5 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3) !important;
+    }
+
+    .add-expense-btn i {
+        font-size: 1.1rem;
+    }
+
+    .category-badge {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .expenses-layout {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 24px;
+        align-items: flex-start;
+    }
+
+    .chart-section {
+        flex: 2;
+        min-width: 0;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 400px;
+        width: 100%;
+    }
+
+    .filter-section {
+        flex: 1;
+        min-width: 300px;
+        background-color: var(--bg-card);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .filter-toggle {
+        padding: 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        transition: background-color 0.2s ease;
+    }
+
+    .filter-toggle:hover {
+        background-color: #f8fafc;
+    }
+
+    .filter-toggle h3 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .filter-arrow {
+        transition: transform 0.3s ease;
+        color: var(--text-light);
+    }
+
+    .filter-arrow.rotated {
+        transform: rotate(180deg);
+    }
+
+    .filter-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+
+    .filter-content.expanded {
+        max-height: 500px;
+    }
+
+    .filter-form {
+        padding: 20px;
+        background: transparent;
+        box-shadow: none;
+        margin: 0;
+        border-radius: 0;
+    }
+
+    .filter-field {
+        margin-bottom: 16px;
+    }
+
+    .filter-submit {
+        margin-top: 16px;
+    }
+
+    .filter-submit .btn {
+        width: 100%;
+    }
+
+    /* responsywnosc */
+    @media (max-width: 1024px) {
+        .expenses-layout {
+            flex-direction: column;
+        }
+
+        .chart-section,
+        .filter-section {
+            flex: none;
+            width: 100%;
+        }
+
+        .filter-section {
+            min-width: auto;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .chart-container {
+            height: 300px;
+        }
+
+        .filter-toggle {
+            padding: 16px;
+        }
+
+        .filter-form {
+            padding: 16px;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .summary-content {
+            flex-direction: column;
+        }
+
+        .summary-left,
+        .summary-right {
+            flex: none;
+            width: 100%;
+        }
+
+        .summary-right {
+            min-height: 80px;
+        }
+    }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+    // funkcja do przelaczania filtrow
+    function toggleFilters() {
+        const filterContent = document.getElementById('filterContent');
+        const filterArrow = document.getElementById('filterArrow');
+
+        filterContent.classList.toggle('expanded');
+        filterArrow.classList.toggle('rotated');
+    }
+
+    // dane do wykresu slupkowego
+    const categoryData = {
+        {% for category, amount in category_totals.items() %}
+        '{{ category }}': {{ amount }},
+        {% endfor %}
+    };
+
+    // kolory dla wykresu
+    const colors = [
+        '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+        '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1'
+    ];
+
+    // konfig wykresu slupkowego
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(categoryData),
+            datasets: [{
+                label: 'Wydatki (PLN)',
+                data: Object.values(categoryData),
+                backgroundColor: colors.slice(0, Object.keys(categoryData).length),
+                borderColor: colors.slice(0, Object.keys(categoryData).length),
+                borderWidth: 1,
+                borderRadius: 4,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: false
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(2) + ' PLN';
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    });
+</script>
+{% endblock %}
